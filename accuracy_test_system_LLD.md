@@ -185,12 +185,12 @@ accuary_test_stopped消息新增字段
 
 CITaskInfo结构体
 
-| 字段名               | 类型   | 描述             | 示例值 | 是否必选 |
-| -------------------- | ------ | ---------------- | ------ | -------- |
-| ~~Status~~           | string | 状态             |        |          |
-| JobID                | string | K8s上对应的JobID |        |          |
-| ~~BuildNumber~~      | string |                  |        |          |
-| ~~DailyBuildNumber~~ | string |                  |        |          |
-| ReportURL            | string |                  |        |          |
-|                      |        |                  |        |          |
+| 字段名               | 类型   | 描述                              | 示例值                   | 是否必选 |
+| -------------------- | ------ | --------------------------------- | ------------------------ | -------- |
+| Status               | string | 获取模型在flex-compute上的状态    | running, success, etc... | 否       |
+| JobID                | string | K8s上对应的JobID                  |                          | 是       |
+| ~~BuildNumber~~      | string | 与JobID相同，可舍弃               |                          |          |
+| ~~DailyBuildNumber~~ | string | 与JobID相同，可舍弃               |                          |          |
+| ReportURL            | string | 精度测试执行完成后，日志文件的URL |                          | 否       |
+|                      |        |                                   |                          |          |
 
