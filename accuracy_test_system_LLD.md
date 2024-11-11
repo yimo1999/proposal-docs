@@ -135,32 +135,26 @@ stateDiagram-v2
 
 accuracy_test_created消息新增字段
 
-| 字段名               | 类型   | 描述                                                         | 示例值                             | 是否必选 |
-| -------------------- | ------ | ------------------------------------------------------------ | ---------------------------------- | :------: |
-| test_type            | string | 区分测试类型（如可用性测试、精度测试）                       | "accuracy_test" \|"usability_test" |    是    |
-| model_test_type      | string | 区分基础测试类型（推理或训练）                               | "inference"  \|"training"          |    是    |
-| model_template       | string | 精度测试执行所需的模型模板                                   | 见约束对应章节                     |    否    |
-| dataset_id           | string | 训练精度测试关联的数据集信息，用于下载数据集                 | "dataset_abc"                      |    否    |
-| baseline_id          | string | 训练关联的基线id                                             | "baseline123"                      |    是    |
-| input_file_path      | string | 推理精度测试输入文本文件的路径，用于推理测试                 | "/path/to/input.txt"               |    否    |
-| baseline_output_file | string | 精度测试基线输出文本文件/loss文件的路径，用于对比测试        | "/path/to/baseline_output.txt"     |    否    |
-| baseline_dir_path    | string | 已有/预创建的基线目录路径，用于subpath挂载                   | "/path/to/baseline_dir"            |    否    |
-| result_dir_path      | string | 测试任务的结果目录路径，用于subpath挂载，用于容器存储测试结果物料 | "/path/to/result_dir"              |    是    |
-| metric               | string | 使用的评估指标                                               | BLEU、绝对误差                     |    是    |
-| threshold            | float  | 通过测试的阈值                                               | 0.85                               |    否    |
-| operator             | string | 用于比较的操作符                                             | >=, <=                             |    是    |
-|                      |        |                                                              |                                    |          |
-|                      |        |                                                              |                                    |          |
+| 字段名                   | 类型   | 描述                                                         | 示例值                             | 是否必选 |
+| ------------------------ | ------ | ------------------------------------------------------------ | ---------------------------------- | :------: |
+| test_type                | string | 区分测试类型（如可用性测试、精度测试）                       | "accuracy_test" \|"usability_test" |    是    |
+| model_test_type          | string | 区分基础测试类型（推理或训练）                               | "inference"  \|"training"          |    是    |
+| model_template           | string | 精度测试执行所需的模型模板                                   | 见约束对应章节                     |    否    |
+| dataset_id               | string | 训练精度测试关联的数据集信息，用于下载数据集                 | "dataset_abc"                      |    否    |
+| baseline_id              | string | 训练关联的基线id                                             | "baseline123"                      |    是    |
+| input_file_path          | string | 推理精度测试输入文本文件的路径，用于推理测试                 | "/path/to/input.txt"               |    否    |
+| ~~baseline_output_file~~ | string | 精度测试基线输出文本文件/loss文件的路径，用于对比测试        | "/path/to/baseline_output.txt"     |    否    |
+| ~~baseline_dir_path~~    | string | 已有/预创建的基线目录路径，用于subpath挂载                   | "/path/to/baseline_dir"            |    否    |
+| ~~result_dir_path~~      | string | 测试任务的结果目录路径，用于subpath挂载，用于容器存储测试结果物料 | "/path/to/result_dir"              |    是    |
+| ~~metric~~               | string | 使用的评估指标                                               | BLEU、绝对误差                     |    是    |
+| ~~threshold~~            | float  | 通过测试的阈值                                               | 0.85                               |    否    |
+| ~~operator~~             | string | 用于比较的操作符                                             | >=, <=                             |    是    |
+|                          |        |                                                              |                                    |          |
+|                          |        |                                                              |                                    |          |
 
 
 
 accuary_test_stopped消息新增字段（似乎不需要新增字段）
-
-| 字段名              | 类型   | 描述                                   | 示例值                             | 是否必选 |
-| ------------------- | ------ | -------------------------------------- | ---------------------------------- | -------- |
-| ~~test_type~~       | string | 区分测试类型（如可用性测试、精度测试） | "accuracy_test" \|"usability_test" | 是       |
-| ~~model_test_type~~ | string | 区分基础测试类型（推理或训练）         | "inference"  \|"training"          | 是       |
-|                     |        |                                        |                                    |          |
 
 
 
@@ -168,77 +162,135 @@ accuary_test_stopped消息新增字段（似乎不需要新增字段）
 
 ## 内存数据结构体字段修改
 
-**原有用于模型可用性认证的内存相关的结构体 ModelInfo 修改为 UsabilityModelInfo**
+**用于模型可用性认证的内存相关的结构体 ModelInfo**  ~~修改为 UsabilityModelInfo~~
 
-新增用于精度测试的内存相关结构体 AccuracyModelInfo
-
-
-
-| 字段名           | 类型             | 描述                           | 示例值                                                       | 是否必选 |
-| ---------------- | ---------------- | ------------------------------ | ------------------------------------------------------------ | -------- |
-| ID               | int64            | 唯一任务ID                     |                                                              | 是       |
-| Owner            | string           | 模型Owner                      | ModelOwner                                                   | 是       |
-| ModelName        | string           | 模型名字                       | ModelName-7B                                                 | 是       |
-| ModelID          | Int64            | 模型ID                         |                                                              | 是       |
-| ImageName        | string           | 精度测试使用的基础镜像         | openeuler-python3.10-cann8.0.rc2.beta1-pytorch2.1.0-openmind0.9.0 | 是       |
-| GitURL           | string           | 模型的URL                      | https://modelers.cn/ModelOwner/ModelName.git                 | 是       |
-| TestStatus       | string           | 测试状态                       | running, pending, etc...                                     | 是       |
-| StatusConfirmed  | bool             |                                |                                                              | 是       |
-| LastUpdated      | string           |                                |                                                              |          |
-| HardwareVersion  | string           | 硬件信息                       | NPU                                                          | 是       |
-| Framework        | string           | 框架信息                       | pytorch                                                      | 是       |
-| FrameworkVersion | string           | 框架版本                       | 2.1.0                                                        | 是       |
-| CannVersion      | string           | Cann版本                       | 8.0.rc1.beta1                                                | 是       |
-| CommitID         | string           | 模型仓的commit ID              | 239f776                                                      | 是       |
-| IsRepoDeleted    | bool             | 判断Repo是否被删除的标志       | True/False                                                   | 是       |
-| CITask           | AccuarryTaskInfo |                                |                                                              | 是       |
-| NumComputeCards  | int              | 精度测试所需卡数               | 1，2，4，8                                                   | 是       |
-|                  |                  |                                |                                                              |          |
-|                  |                  |                                |                                                              |          |
-| RunAsBaseLine    | bool             | 当前任务是否作为基线运行的标志 | True/False                                                   | 是       |
-| ModelTemplate    | string           | 模型Template                   | qwen, internal, etc...                                       | 否       |
-| DatasetName      | string           | 精度训练所用的数据集名称       | alpace-demo                                                  | 否       |
+~~新增用于精度测试的内存相关结构体 AccuracyModelInfo~~
 
 
 
-AccuracyTaskInfo结构体
+当前设计和模型可用性测试共用同一个内存数据结构体
 
-| 字段名       | 类型   | 描述                           | 示例值                   | 是否必选 |
-| ------------ | ------ | ------------------------------ | ------------------------ | -------- |
-| Status       | string | 获取模型在flex-compute上的状态 | running, success, etc... | 否       |
-| JobID        | string | K8s上对应的JobID               |                          | 是       |
-| BaseLineName | string | 基线文件名称                   | qwen2-0.5b-baseline1.txt | 否       |
-| BaseLineURL  | string | 基线URL                        | obs URL                  | 否       |
+#### ModelInfo结构体原有参数
+
+| 字段名           | 类型       | 描述                     | 示例值                                                       | 是否必选 |
+| ---------------- | ---------- | ------------------------ | ------------------------------------------------------------ | -------- |
+| ID               | int64      | 唯一任务ID               |                                                              | 是       |
+| Owner            | string     | 模型Owner                | ModelOwner                                                   | 是       |
+| ModelName        | string     | 模型名字                 | ModelName-7B                                                 | 是       |
+| ModelID          | Int64      | 模型ID                   |                                                              | 是       |
+| ImageName        | string     | 精度测试使用的基础镜像   | openeuler-python3.10-cann8.0.rc2.beta1-pytorch2.1.0-openmind0.9.0 | 是       |
+| GitURL           | string     | 模型的URL                | https://modelers.cn/ModelOwner/ModelName.git                 | 是       |
+| TestStatus       | string     | 测试状态                 | running, pending, etc...                                     | 是       |
+| StatusConfirmed  | bool       |                          |                                                              | 是       |
+| LastUpdated      | string     |                          |                                                              |          |
+| HardwareVersion  | string     | 硬件信息                 | NPU                                                          | 是       |
+| Framework        | string     | 框架信息                 | pytorch                                                      | 是       |
+| FrameworkVersion | string     | 框架版本                 | 2.1.0                                                        | 是       |
+| CannVersion      | string     | Cann版本                 | 8.0.rc1.beta1                                                | 是       |
+| CommitID         | string     | 模型仓的commit ID        | 239f776                                                      | 是       |
+| IsRepoDeleted    | bool       | 判断Repo是否被删除的标志 | True/False                                                   | 是       |
+| CITask           | CITaskInfo |                          |                                                              | 是       |
+| NumComputeCards  | int        | 精度测试所需卡数         | 1，2，4，8                                                   | 是       |
+|                  |            |                          |                                                              |          |
+|                  |            |                          |                                                              |          |
 
 
 
-## 通知merlin server模型状态变更结构体UpdateAccuracyCI
+#### ModelInfo结构体新增字段
 
-UpdateAccuracyCI结构体
+| 字段名        | 类型   | 描述                                   | 示例值                             | 是否必选 |
+| ------------- | ------ | -------------------------------------- | ---------------------------------- | -------- |
+| TestType      | string | 区分测试类型（如可用性测试、精度测试） | "accuracy_test" \|"usability_test" | 是       |
+| ModelTestType | string | 区分基础测试类型（推理或训练）         | "inference"  \|"training"          | 是       |
+| RunAsBaseLine | bool   | 当前任务是否作为基线运行的标志         | True/False                         | 是       |
+| ModelTemplate | string | 模型Template                           | qwen, internal, etc...             | 否       |
+| DatasetName   | string | 精度训练所用的数据集名称               | alpace-demo                        | 否       |
+| Metric        | string | 使用的评估指标                         | BLEU、绝对误差                     | 否       |
+| Threshold     | float  | 通过测试的阈值                         | 0.85                               | 否       |
+| Operator      | string | 用于比较的操作符                       | >=, <=                             | 是       |
+| BaseLineName  | string | 用于对比的基线名称                     | qwen2-0.5b-baseline2               | 否       |
+|               |        |                                        |                                    |          |
 
-| 字段名           | 类型   | 描述               | 示例值 | 是否必选 |
-| ---------------- | ------ | ------------------ | ------ | -------- |
-| Id               | int64  | 任务id             |        |          |
-| ModelId          | int64  | 数据库内模型自增id |        | 是       |
-| CommitId         | string | commit id          |        |          |
-| CiStatus         | string | ci状态             |        | 是       |
-| ExternalArgsInfo | string | 一个结构体         |        | 是       |
 
-ExternalArgsInfo包含内容
 
-| 字段名        | 类型   | 描述                                           | 示例值                 | 是否必选 |
-| ------------- | ------ | ---------------------------------------------- | ---------------------- | -------- |
-| JobID         | string | job id                                         |                        | 是       |
-| Status        | string | ci状态                                         | running/success/failed | 是       |
-| stage         | string | 任务阶段                                       | download/inference     | 是       |
-| output        | string | 推理输出文件路径                               |                        | 否       |
-| log           | string | 日志路径                                       |                        | 否       |
-| passed        | bool   | 精度测试是否通过                               | True/False             | 否       |
-| metric        | string | 使用的评估指标                                 | BLEU/绝对误差          | 是       |
-| metric_value  | float  | 对比测试时，计算得到的指标值（仅对比测试需要） | 0.85                   | 否       |
-| ~~threshold~~ | float  | 通过测试的阈值（仅对比测试需要）               | 0.75                   | 否       |
-| ~~operator~~  | string | 用于比较的操作符                               | >=/<=                  | 否       |
-| updated_at    | date   | 更新时间                                       |                        | 是       |
+
+
+
+
+#### CITaskInfo结构体原有参数
+
+| 字段名    | 类型   | 描述                           | 示例值                   | 是否必选 |
+| --------- | ------ | ------------------------------ | ------------------------ | -------- |
+| Status    | string | 获取模型在flex-compute上的状态 | running, success, etc... | 否       |
+| JobID     | string | K8s上对应的JobID               |                          | 是       |
+| ReportURL | string | 日志文件路径                   |                          | 否       |
+|           |        |                                |                          |          |
+|           |        |                                |                          |          |
+
+
+
+#### CITaskInfo结构体新增参数
+
+| 字段名         | 类型   | 描述                           | 示例值                     | 是否必选 |
+| -------------- | ------ | ------------------------------ | -------------------------- | -------- |
+| NewBaseLineURL | string | 基线URL                        | obs URL                    | 否       |
+| TestResultURL  | string | test_result.json文件URL        | obs URL                    | 否       |
+| OutputURL      | string | 推理输出文件URL                | obs URL                    | 否       |
+| MetricValue    | float  | 使用对应评估输出的得分         | 0.85                       | 否       |
+| Passed         | bool   | 用于判断对比测试是否通过的标志 | True/False                 | 否       |
+| Stage          | string | 测试处在的阶段                 | pending/download/inference | 否       |
+|                |        |                                |                            |          |
+|                |        |                                |                            |          |
+|                |        |                                |                            |          |
+
+
+
+
+
+
+
+## 通知merlin server模型状态变更
+
+#### 和模型可用性测试共用UpdateModelCI结构体
+
+#### UpdateModelCI结构体
+
+| 字段名           | 类型   | 描述                      | 示例值 | 是否必选 |
+| ---------------- | ------ | ------------------------- | ------ | -------- |
+| Id               | int64  | 任务id                    |        | 是       |
+| ModelId          | int64  | 数据库内模型自增id        |        | 是       |
+| CommitId         | string | commit id                 |        | 是       |
+| CiStatus         | string | ci状态                    |        | 是       |
+| ResultURL        | string | 日志URL（模型可用性测试） |        | 否       |
+| ExternalArgsInfo | string | 一个结构体                |        | 是       |
+
+
+
+#### ExternalArgsInfo原有字段
+
+| 字段名          | 类型   | 描述                      | 示例值                 | 是否必选 |
+| --------------- | ------ | ------------------------- | ---------------------- | -------- |
+| ImageName       | string | 镜像名称                  |                        | 是       |
+| JobID           | string | job id                    |                        | 是       |
+| Status          | string | ci状态                    | running/success/failed | 是       |
+| ReportURL       | string | 日志URL（模型可用性测试） |                        | 否       |
+| StatusConfirmed | bool   | 状态确认位                |                        | 是       |
+|                 |        |                           |                        |          |
+
+
+
+#### ExternalArgsInfo新增字段
+
+| 字段名      | 类型   | 描述                                           | 示例值                     | 是否必选 |
+| ----------- | ------ | ---------------------------------------------- | -------------------------- | -------- |
+| Stage       | string | 任务阶段                                       | pending/download/inference | 是       |
+| OutputURL   | string | 推理输出文件路径                               | obs URL                    | 否       |
+| LogURL      | string | 日志路径                                       | obs URL                    | 否       |
+| Passed      | bool   | 精度测试是否通过                               | True/False                 | 否       |
+| MetricValue | float  | 对比测试时，计算得到的指标值（仅对比测试需要） | 0.85                       | 否       |
+| UpdatedDate | date   | 更新时间                                       |                            | 是       |
+|             |        |                                                |                            |          |
+|             |        |                                                |                            |          |
 
 
 
@@ -338,6 +390,7 @@ sequenceDiagram
 
 ```json
 # test_result.json sample
+# comparison_datails字段当"is_comparison_test": true 时才会存在
 {
   "baseline_id": "baseline_123",
   "is_comparison_test": true,
