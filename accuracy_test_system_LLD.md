@@ -563,3 +563,37 @@ sequenceDiagram
 
 
 
+
+
+
+
+## 精度测试执行测伪代码
+
+- ### 对比测试
+
+输入：Owner, ModelName, ImageName, NPUNumber, BaseLineName, NewBaseLineName, Metric, Threshold, Operator, TestType, ModelTestType, RunAsBaseLine, INPUT_FILE_PATH
+
+```python
+Function main():
+  读取环境变量
+  
+  openmind-hub.snapshot_download("Owner/ModelName")
+  if TestType == "usability_test":
+    return
+  else:
+    if ModelTestType == "inference" AND RunAsBaseLine:
+      download("INPUT_FILE_PATH")
+      return
+    
+    elif ModelTestType == "inference" AND Not RunAsBaseLine:
+      download("BaseLineName")
+      
+    
+    
+  
+```
+
+
+
+
+
