@@ -43,6 +43,8 @@ stateDiagram-v2
 
 
 
+
+
 ## Kafka消息接口更改
 
 **原有的模型可用性认证消息命名由 model_ci_created, model_ci_stopped修改为usability_test_created, usability_test_stopped**
@@ -541,13 +543,77 @@ def inference_for_accuracy():
 
 
 
-#### ci-adapter消息消费处理
+#### 内存内通过flex-compute sdk返回的任务状态对是否通过精度测试进行判断
+
+
+
+| ci-adapter内存处状态位 | flex-compute job状态位       |
+| ---------------------- | ---------------------------- |
+| success                | runningSuccess               |
+| failed                 | downloadFailed/runningFailed |
+| running                | running                      |
+| stopped                | stopped                      |
+|                        |                              |
+
+
+
+|      |      |
+| ---- | ---- |
+|      |      |
+|      |      |
+|      |      |
+
+
+
+#### 由于flex-compute sdk返回的job运行完的状态只有runningSuccess和runningFailed，没有更加细粒度的状态划分。因此ci-adapter中查询到job状态为runningSuccess后，需要结合obs内的test_result.json文件内的passed参数来判断精度测试是否通过 
+
+- test_result.json中的passed参数为判断精度测试合格的唯一标识。flex-compute的runningSuccess意味着流程跑通，与精度测试是否合格无关。
+- flex-compute返回runningFailed意味着流程没有跑通（下载失败，推理失败，对比测试失败）
+- passed参数只有在对比测试且flex-compute返回为runningSuccess时有效，作为基线测试的时候为空参数
+- flex-compute返回为runningFailed时不提供 output.txt, test_result.json, 只提供log文件
 
 
 
 ```go
+"{
+  "baseline_id": "baseline_123",
+  "is_comparison_test": true,
+  "test_type": "inference",
+  "stage": "test",
+  "output": "output.txt",
+  "log": "execution.log",
+  "passed": true,
+  "comparison_details": {
+    "metric": "BLEU",
+    "metric_value": 0.85,
+    "threshold": 0.80,
+    "operator": ">=",
+  }
+}"
 
+
+func (ami *AccuracyModelInfo)accuracy_test_inspector() {
+  // 内存中的status只有 success, failed(runningFailed and downloadFailed included), running, stopped
+  test_result = download(/obs_endpoint/accuracy_test_id/test_result.json)
+  if !ami.RunAsBaseLine {
+    ami.TaskInfo{
+      Status: "success"
+      ReportURL: test_result.log
+      OutputURL: test_result.output
+      MetricValue: test_result.comparison_details.metric_value
+      Passed: test_result.passed
+    }
+  } else {
+    	ami.TaskInfo{
+        Status: "success"
+        ReportURL: test_result.log
+    }
+  }
+
+}
 ```
+
+
 
 
 
