@@ -53,17 +53,17 @@ accuracy_test_created消息新增字段
 
 | 字段名                   | 类型   | 描述                                                         | 示例值                             | 是否必选 |
 | ------------------------ | ------ | ------------------------------------------------------------ | ---------------------------------- | :------: |
-| id                       | string | 该精度测试对应的唯一标识符，数据库自增主键                   |                                    |    是    |
+| accuracy_test_id         | string | 该精度测试对应的唯一标识符，数据库自增主键                   |                                    |    是    |
 | test_type                | string | 区分测试类型（如可用性测试、精度测试）                       | "accuracy_test" \|"usability_test" |    是    |
 | model_test_type          | string | 区分基础测试类型（推理或训练）                               | "inference"  \|"training"          |    是    |
 | model_template           | string | 精度测试执行所需的模型模板                                   | 见约束对应章节                     |    否    |
 | dataset_id               | string | 训练精度测试关联的数据集信息，用于下载数据集                 | "dataset_abc"                      |    否    |
 | baseline_id              | string | 训练关联的基线id                                             | "baseline123"                      |    是    |
-| input_file_path          | string | 推理精度测试输入文本文件的路径，用于推理测试                 | "/path/to/input.txt"               |    否    |
 | metric                   | string | 使用的评估指标                                               | BLEU、绝对误差                     |    是    |
 | threshold                | float  | 通过测试的阈值                                               | 0.85                               |    否    |
 | operator                 | string | 用于比较的操作符                                             | >=, <=                             |    是    |
 | ~~baseline_output_file~~ | string | 精度测试基线输出文本文件/loss文件的路径，用于对比测试        | "/path/to/baseline_output.txt"     |    否    |
+| ~~input_file_path~~      | string | 推理精度测试输入文本文件的路径，用于推理测试                 | "/path/to/input.txt"               |    否    |
 | ~~baseline_dir_path~~    | string | 已有/预创建的基线目录路径，用于subpath挂载                   | "/path/to/baseline_dir"            |    否    |
 | ~~result_dir_path~~      | string | 测试任务的结果目录路径，用于subpath挂载，用于容器存储测试结果物料 | "/path/to/result_dir"              |    是    |
 |                          |        |                                                              |                                    |          |
@@ -554,14 +554,6 @@ def inference_for_accuracy():
 | running                | running                      |
 | stopped                | stopped                      |
 |                        |                              |
-
-
-
-|      |      |
-| ---- | ---- |
-|      |      |
-|      |      |
-|      |      |
 
 
 
