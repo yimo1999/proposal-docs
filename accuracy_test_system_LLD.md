@@ -303,7 +303,7 @@ sequenceDiagram
     "metric": "BLEU",
     "metric_value": 0.85,
     "threshold": 0.80,
-    "operator": ">=",
+    "operator": ">="
   }
 }
 ```
@@ -474,44 +474,22 @@ sequenceDiagram
 
 
 ```python
-# 下载代码
-def file_downloader():
-  # 读取环境变量  
-  openmind-hub.snapshot_download(OWNER/MODEL_NAME)
-  if TEST_TYPE == "usability_test":
-    return
-  else:
-    if MODEL_TEST_TYPE == "inference" AND RUN_AS_BASELINE:
-      # 基线测试
-      download(INPUT_FILE_PATH)
-      return
-    
-    elif MODEL_TEST_TYPE == "inference" AND Not RUN_AS_BASELINE:
-      # 对比测试
-      download(BASELINE_NAME)
-      return
-    
-      
-      
 #推理代码   
 def inference_for_accuracy():
   model_path = f"/home/openmind/data/.cache/{OWNER/MODEL_NAME}/snapshot/commit-id"
   obs_root_path = f"/root_path/results"
   # 执行推理
-  output = openmind.pipeline(model_path)
+  pipe = openmind.pipeline(model_path)
+  benchmark_input=file_reader("input_benchmark.txt")
+  # 确定随机性种子，使多次推理输出能保持一致
+  output = pipe(benchmark_input)
   file_writer("output.txt", output)
-  if RUN_AS_BASELINE:
-    # 生成test_results文件需要的json格式字符串
-    test_results = generate_result_file()
-    file_writer("test_results.json", test_results)
-    # 上传为baseline
-    upload_baseline("input.txt", "output.txt")
-  else:
-    baseline_output_path = "xxx"
-    compute_metric(baseline_output_path, output, METRIC, THRESHOLD, OPERATOR)
-    # 生成test_results文件需要的json格式字符串
-    test_results = generate_result_file()
-    file_writer("test_results.json", test_results)
+  benchmark_output = file_reader("output_benchmark.txt")
+  # 通过环境变量METRIC判断使用的评估方法，对基线输出和pipeline的到的输出进行对比输出得分
+  metric_val = compute_metric(metric, output, benchmark_output)
+  # 根据metric_val, threshold, operator等判断精度测试是否成功，并生成test_results文件需要的对应json格式字符串
+  test_results = generate_result_file(metric, metric_val, threshold, operator)
+  file_writer("test_results.json", test_results)
   
   upload_files_to_obs("output.txt", "log.log", "test_results.json")
   
@@ -557,12 +535,21 @@ def inference_for_accuracy():
 
 
 
-#### 由于flex-compute sdk返回的job运行完的状态只有runningSuccess和runningFailed，没有更加细粒度的状态划分。因此ci-adapter中查询到job状态为runningSuccess后，需要结合obs内的test_result.json文件内的passed参数来判断精度测试是否通过 
+#### 由于flex-compute sdk返回的job运行完的状态只有runningSuccess和runningFailed，没有更加细粒度的状态划分。因此当前设计为ci-adapter中查询到job状态为runningSuccess后，即表示流程跑通+与标杆比较成功
 
-- test_result.json中的passed参数为判断精度测试合格的唯一标识。flex-compute的runningSuccess意味着流程跑通，与精度测试是否合格无关。
-- flex-compute返回runningFailed意味着流程没有跑通（下载失败，推理失败，对比测试失败）
-- passed参数只有在对比测试且flex-compute返回为runningSuccess时有效，作为基线测试的时候为空参数
-- flex-compute返回为runningFailed时不提供 output.txt, test_result.json, 只提供log文件
+- flex-compute的runningSuccess意味着流程跑通+与标杆比较成功，与精度测试是否合格无关。
+- flex-compute返回runningFailed意味着3个流程中有一个失败（下载失败，推理失败，对比测试失败）
+- flex-compute返回为runningFailed时：
+  - 下载失败/推理失败：
+    - comparison_details = nil
+    - output = nil
+    - passed = nil
+    - log = "/path/to/your/log"
+  - 对比失败：
+    - comparison_detals  不为空
+    - passed = false
+    - output = "/path/to/your/output"
+    - Log = "/path/to/your/log"
 
 
 
@@ -579,29 +566,42 @@ def inference_for_accuracy():
     "metric": "BLEU",
     "metric_value": 0.85,
     "threshold": 0.80,
-    "operator": ">=",
+    "operator": ">="
   }
 }"
 
 
-func (ami *AccuracyModelInfo)accuracy_test_inspector() {
+// 当flex-compute返回job状态为success时，调用该方
+func (ami *AccuracyModelInfo) accuracy_test_inspector() {
   // 内存中的status只有 success, failed(runningFailed and downloadFailed included), running, stopped
-  test_result = download(/obs_endpoint/accuracy_test_id/test_result.json)
-  if !ami.RunAsBaseLine {
+  test_result = download(/obs_endpoint/accuracy_test_id/test_result.json)	
+
+  ami.TaskInfo{
+    ReportURL: test_result.log
+    OutputURL: test_result.output
+    MetricValue: test_result.comparison_details.metric_value
+    Passed: test_result.passed
+  }
+}
+
+
+// 当flex-compute返回job状态为failed时，调用该方法
+func (ami *AccuracyModelInfo) IsRunningFailure() {
+  test_result = download(/obs_endpoint/accuracy_test_id/test_result.json)	
+  // 如果test_result.json存在，说明执行侧全流程运行成功，为精度对比失败
+  if isFileExisted() {
     ami.TaskInfo{
-      Status: "success"
-      ReportURL: test_result.log
       OutputURL: test_result.output
       MetricValue: test_result.comparison_details.metric_value
       Passed: test_result.passed
     }
   } else {
-    	ami.TaskInfo{
-        Status: "success"
-        ReportURL: test_result.log
+    // outputURL, metricValue, Passed等置空，只返回log URL
+    ami.TaskInfo{
+      reportURL: reportURL
     }
   }
-
+ }
 }
 ```
 
