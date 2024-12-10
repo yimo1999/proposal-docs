@@ -1,4 +1,4 @@
-前端状态机
+## 前端状态机
 
 ```mermaid
 stateDiagram-v2
@@ -14,9 +14,9 @@ stateDiagram-v2
     测试失败 --> 初始态: 用户重新发起测试
 ```
 
-# flex-compute 单个job状态机
+## flex-compute 单个job状态机
 
-### 推理失败原因包含：
+### 推理失败原因
 
 - 模型等文件下载失败
 
@@ -51,7 +51,7 @@ stateDiagram-v2
 
 **原有的模型可用性认证消息命名由 model_ci_created, model_ci_stopped修改为usability_test_created, usability_test_stopped**
 
-accuracy_test_created消息字段
+#### accuracy_test_created消息字段
 
 | 字段名           | 类型    | 描述                                         | 示例值                                                       | 是否必选 |
 | ---------------- | ------- | -------------------------------------------- | ------------------------------------------------------------ | :------: |
@@ -89,39 +89,35 @@ accuracy_test_created消息字段
 
 #### AccuracyModelInfo结构体参数
 
-| 字段名           | 类型       | 描述                                   | 示例值                                                       | 是否必选 |
-| ---------------- | ---------- | -------------------------------------- | ------------------------------------------------------------ | -------- |
-| ID               | int64      | 唯一任务ID                             |                                                              | 是       |
-| Owner            | string     | 模型Owner                              | ModelOwner                                                   | 是       |
-| ModelName        | string     | 模型名字                               | ModelName-7B                                                 | 是       |
-| ModelID          | Int64      | 模型ID                                 |                                                              | 是       |
-| ImageName        | string     | 精度测试使用的基础镜像                 | openeuler-python3.10-cann8.0.rc2.beta1-pytorch2.1.0-openmind0.9.0 | 是       |
-| GitURL           | string     | 模型的URL                              | https://modelers.cn/ModelOwner/ModelName.git                 | 是       |
-| TestStatus       | string     | 测试状态                               | running, pending, etc...                                     | 是       |
-| StatusConfirmed  | bool       |                                        |                                                              | 是       |
-| LastUpdated      | string     |                                        |                                                              |          |
-| HardwareVersion  | string     | 硬件信息                               | NPU                                                          | 是       |
-| Framework        | string     | 框架信息                               | pytorch                                                      | 是       |
-| FrameworkVersion | string     | 框架版本                               | 2.1.0                                                        | 是       |
-| CannVersion      | string     | Cann版本                               | 8.0.rc1.beta1                                                | 是       |
-| CommitID         | string     | 模型仓的commit ID                      | 239f776                                                      | 是       |
-| IsRepoDeleted    | bool       | 判断Repo是否被删除的标志               | True/False                                                   | 是       |
-| CITask           | CITaskInfo |                                        |                                                              | 是       |
-| NumComputeCards  | int        | 精度测试所需卡数                       | 1，2，4，8                                                   | 是       |
-| TestType         | string     | 区分测试类型（如可用性测试、精度测试） | "accuracy_test" \|"usability_test"                           | 是       |
-| ModelTestType    | string     | 区分基础测试类型（推理或训练）         | "inference"  \|"training"                                    | 是       |
-| RunAsBaseLine    | bool       | 当前任务是否作为基线运行的标志         | True/False                                                   | 是       |
-| ModelTemplate    | string     | 模型Template                           | qwen, internal, etc...                                       | 否       |
-| DatasetName      | string     | 精度训练所用的数据集名称               | alpace-demo                                                  | 否       |
-| Metric           | string     | 使用的评估指标                         | BLEU、绝对误差                                               | 否       |
-| Threshold        | float      | 通过测试的阈值                         | 0.85                                                         | 否       |
-| Operator         | string     | 用于比较的操作符                       | >=, <=                                                       | 是       |
-| BaseLineName     | string     | 用于对比的基线名称                     | qwen2-0.5b-baseline2                                         | 否       |
-|                  |            |                                        |                                                              |          |
-|                  |            |                                        |                                                              |          |
-|                  |            |                                        |                                                              |          |
-|                  |            |                                        |                                                              |          |
-|                  |            |                                        |                                                              |          |
+| 字段名           | 类型             | 描述                                   | 示例值                                                       | 是否必选 |
+| ---------------- | ---------------- | -------------------------------------- | ------------------------------------------------------------ | -------- |
+| ID               | int64            | 唯一任务ID                             |                                                              | 是       |
+| Owner            | string           | 模型Owner                              | ModelOwner                                                   | 是       |
+| ModelName        | string           | 模型名字                               | ModelName-7B                                                 | 是       |
+| ModelID          | Int64            | 模型ID                                 |                                                              | 是       |
+| ImageName        | string           | 精度测试使用的基础镜像                 | openeuler-python3.10-cann8.0.rc2.beta1-pytorch2.1.0-openmind0.9.0 | 是       |
+| GitURL           | string           | 模型的URL                              | https://modelers.cn/ModelOwner/ModelName.git                 | 是       |
+| TestStatus       | string           | 测试状态                               | running, pending, etc...                                     | 是       |
+| StatusConfirmed  | bool             |                                        |                                                              | 是       |
+| LastUpdated      | string           |                                        |                                                              |          |
+| HardwareVersion  | string           | 硬件信息                               | NPU                                                          | 是       |
+| Framework        | string           | 框架信息                               | pytorch                                                      | 是       |
+| FrameworkVersion | string           | 框架版本                               | 2.1.0                                                        | 是       |
+| CannVersion      | string           | Cann版本                               | 8.0.rc1.beta1                                                | 是       |
+| CommitID         | string           | 模型仓的commit ID                      | 239f776                                                      | 是       |
+| IsRepoDeleted    | bool             | 判断Repo是否被删除的标志               | True/False                                                   | 是       |
+| CITask           | CITaskInfo       |                                        |                                                              | 是       |
+| NumComputeCards  | int              | 精度测试所需卡数                       | 1，2，4，8                                                   | 是       |
+| TestType         | string           | 区分测试类型（如可用性测试、精度测试） | "accuracy_test" \|"usability_test"                           | 是       |
+| ModelTestType    | string           | 区分基础测试类型（推理或训练）         | "inference"  \|"training"                                    | 是       |
+| RunAsBaseLine    | bool             | 当前任务是否作为基线运行的标志         | True/False                                                   | 是       |
+| ModelTemplate    | string           | 模型Template                           | qwen, internal, etc...                                       | 否       |
+| DatasetName      | string           | 精度训练所用的数据集名称               | alpace-demo                                                  | 否       |
+| Metric           | string           | 使用的评估指标                         | BLEU、绝对误差                                               | 否       |
+| Threshold        | float            | 通过测试的阈值                         | 0.85                                                         | 否       |
+| Operator         | string           | 用于比较的操作符                       | >=, <=                                                       | 是       |
+| BaseLineName     | string           | 用于对比的基线名称                     | qwen2-0.5b-baseline2                                         | 否       |
+| CiTask           | AccuracyTaskInfo | 精度测试相关的信息                     |                                                              | 是       |
 
 
 
@@ -138,8 +134,6 @@ accuracy_test_created消息字段
 | MetricValue    | float  | 使用对应评估输出的得分         | 0.85                       | 否       |
 | Passed         | bool   | 用于判断对比测试是否通过的标志 | True/False                 | 否       |
 | Stage          | string | 测试处在的阶段                 | pending/download/inference | 否       |
-|                |        |                                |                            |          |
-|                |        |                                |                            |          |
 
 
 
@@ -147,9 +141,7 @@ accuracy_test_created消息字段
 
 ## 通知merlin server模型状态变更
 
-#### 和模型可用性测试共用UpdateModelCI结构体
-
-#### UpdateModelCI结构体
+#### UpdateAccuracyCI结构体
 
 | 字段名                   | 类型   | 描述                                          | 示例值 | 是否必选 |
 | ------------------------ | ------ | --------------------------------------------- | ------ | -------- |
@@ -182,11 +174,13 @@ accuracy_test_created消息字段
 | BaseLineName    | string  | 基线名称                               |                                                              | 否       |
 | TestType        | string  | 区分测试类型（如可用性测试、精度测试） | "accuracy_test" \|"usability_test"                           | 是       |
 
-# 发起推理精度测试
 
-## 前端/merlin server/kafka/ci-adapter/flex-compute之间的交互
 
-#### 发起精度测试流程概述：
+## 发起推理精度测试
+
+前端/merlin server/kafka/ci-adapter/flex-compute之间的交互
+
+#### 发起精度测试流程概述
 
 1. 用户发起测试的处理请求
 2. 前端向merlin server发起精度测试请求
@@ -234,7 +228,7 @@ sequenceDiagram
 
 ## flex-compute/obs/社区之间的交互
 
-### 大致流程
+#### 流程
 
 1. 容器启动
 
@@ -312,7 +306,7 @@ sequenceDiagram
 
 
 
-对比测试
+#### 对比测试流程图
 
 ```mermaid
 sequenceDiagram
@@ -364,7 +358,7 @@ sequenceDiagram
 
 
 
-作为基准测试
+#### 基准测试流程图
 
 ```mermaid
 sequenceDiagram
@@ -410,7 +404,7 @@ sequenceDiagram
 
 ## 终止推理精度测试（涵盖发起终止请求/模型仓删除/转私有/文件更改）
 
-#### 流程概述：
+#### 流程
 
 1. 用户主动发起终止精度测试的处理请求/被动发起终止的请求
 2. 前端向merlin server发起终止请求
@@ -523,9 +517,9 @@ def inference_for_accuracy():
 
 ## ci-adapter侧通过执行侧返回信息和对应test_result.json文件判断精度测试结构
 
+#### 内存状态位与执行测状态位对照表
 
-
-#### 内存内通过flex-compute sdk返回的任务状态对是否通过精度测试进行判断
+内存内通过flex-compute sdk返回的任务状态对是否通过精度测试进行判断
 
 | ci-adapter内存处状态位 | flex-compute job状态位       |
 | ---------------------- | ---------------------------- |
@@ -537,7 +531,9 @@ def inference_for_accuracy():
 
 
 
-#### 由于flex-compute sdk返回的job运行完的状态只有runningSuccess和runningFailed，没有更加细粒度的状态划分。因此当前设计为ci-adapter中查询到job状态为runningSuccess后，即表示流程跑通+与标杆比较成功
+#### 测试真实结果判断逻辑
+
+由于flex-compute sdk返回的job运行完的状态只有runningSuccess和runningFailed，没有更加细粒度的状态划分。因此当前设计为ci-adapter中查询到job状态为runningSuccess后，即表示流程跑通+与标杆比较成功
 
 - flex-compute的runningSuccess意味着流程跑通+与标杆比较成功，与精度测试是否合格无关。
 - flex-compute返回runningFailed意味着3个流程中有一个失败（下载失败，推理失败，对比测试失败）
