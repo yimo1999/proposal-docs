@@ -45,9 +45,9 @@ stateDiagram-v2
 
 
 
+## 结构体新增/变更
 
-
-## Kafka消息接口更改
+### Kafka消息接口结构体
 
 **原有的模型可用性认证消息命名由 model_ci_created, model_ci_stopped修改为usability_test_created, usability_test_stopped**
 
@@ -81,7 +81,7 @@ stateDiagram-v2
 
 
 
-## 内存数据结构体字段修改
+### 内存数据结构体字段修改
 
 **用于模型可用性认证的内存相关的结构体 ModelInfo 修改为 UsabilityModelInfo**
 
@@ -139,7 +139,7 @@ stateDiagram-v2
 
 
 
-## 通知merlin server模型状态变更
+### merlin server模型状态变更通知
 
 #### UpdateAccuracyCI结构体
 
@@ -176,11 +176,11 @@ stateDiagram-v2
 
 
 
-## 发起推理精度测试
+## 推理精度测试发起
 
 前端/merlin server/kafka/ci-adapter/flex-compute之间的交互
 
-#### 发起精度测试流程概述
+### 精度测试发起流程概述
 
 1. 用户发起测试的处理请求
 2. 前端向merlin server发起精度测试请求
@@ -228,7 +228,7 @@ sequenceDiagram
 
 ## flex-compute/obs/社区之间的交互
 
-#### 流程
+### 整体流程
 
 1. 容器启动
 
@@ -404,7 +404,7 @@ sequenceDiagram
 
 ## 终止推理精度测试（涵盖发起终止请求/模型仓删除/转私有/文件更改）
 
-#### 流程
+### 整体流程
 
 1. 用户主动发起终止精度测试的处理请求/被动发起终止的请求
 2. 前端向merlin server发起终止请求
@@ -463,6 +463,10 @@ sequenceDiagram
 
 ## 精度测试执行侧伪代码
 
+
+
+### 伪代码
+
 输入：OWNER, MODEL_NAME,  BASELINE_NAME, NEW_BASELINE_NAME, METRIC, THRESHOLD, OPERATOR, TEST_TYPE, MODEL_TEST_TYPE, RUN_AS_BASELINE, INPUT_FILE_PATH, TEST_ID
 
 
@@ -491,7 +495,7 @@ def inference_for_accuracy():
 
 
 
-#### OBS文件存放路径
+### OBS文件存放路径
 
 ```apl
 /{root_path}/
@@ -515,9 +519,9 @@ def inference_for_accuracy():
 
 
 
-## ci-adapter侧通过执行侧返回信息和对应test_result.json文件判断精度测试结构
+## ci-adapter判断精度测试结果
 
-#### 内存状态位与执行测状态位对照表
+### 内存状态位与执行测状态位对照表
 
 内存内通过flex-compute sdk返回的任务状态对是否通过精度测试进行判断
 
@@ -531,7 +535,7 @@ def inference_for_accuracy():
 
 
 
-#### 测试真实结果判断逻辑
+### 测试真实结果判断逻辑
 
 由于flex-compute sdk返回的job运行完的状态只有runningSuccess和runningFailed，没有更加细粒度的状态划分。因此当前设计为ci-adapter中查询到job状态为runningSuccess后，即表示流程跑通+与标杆比较成功
 
