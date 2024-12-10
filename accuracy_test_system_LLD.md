@@ -467,7 +467,7 @@ sequenceDiagram
 
 
 
-## 精度测试执行测伪代码
+## 精度测试执行侧伪代码
 
 输入：OWNER, MODEL_NAME,  BASELINE_NAME, NEW_BASELINE_NAME, METRIC, THRESHOLD, OPERATOR, TEST_TYPE, MODEL_TEST_TYPE, RUN_AS_BASELINE, INPUT_FILE_PATH, TEST_ID
 
@@ -521,9 +521,11 @@ def inference_for_accuracy():
 
 
 
+## ci-adapter侧通过执行侧返回信息和对应test_result.json文件判断精度测试结构
+
+
+
 #### 内存内通过flex-compute sdk返回的任务状态对是否通过精度测试进行判断
-
-
 
 | ci-adapter内存处状态位 | flex-compute job状态位       |
 | ---------------------- | ---------------------------- |
