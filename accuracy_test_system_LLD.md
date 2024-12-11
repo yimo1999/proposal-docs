@@ -1,47 +1,14 @@
-## 前端状态机
+# 社区模型精度测试详设文档
 
-```mermaid
-stateDiagram-v2
-    [*] --> 初始态
-    初始态 --> 排队中: 用户发起测试请求
-    排队中 --> 运行中: CI-JOB成功下发
-    排队中 --> 测试终止: 用户终止测试/被动终止
-    运行中 --> 测试通过: 测试成功
-    运行中 --> 测试失败: 测试失败
-    运行中 --> 测试终止: 用户终止测试/被动终止
-    测试终止 --> 初始态: 用户重新发起测试
-    测试通过 --> 初始态: 用户重新发起测试
-    测试失败 --> 初始态: 用户重新发起测试
-```
+## 模型精度测试介绍
 
-## flex-compute 单个job状态机
+### 背景
 
-### 推理失败原因
+魔乐社区新增支持模型精度对比测试，推理场景，支持文生文(text-generation) 相关模型发起对比测试。精度测试支持基于用户导入的GPU基线数据进行比对测试，支持推理输出比对，支持NPU上测试作为基线运行生成新基线，且针对不同规模的模型支持单机多卡分布式训练
 
-- 模型等文件下载失败
+### 价值
 
-- 对比测试
-  - 推理脚本或模型问题导致的单次前向推理失败
-  - 虽然单次前向推理成功，但是与标杆对比后低于评估标准
-- 基线测试
-  - 推理脚本或模型问题导致的单次前向推理失败
-
-```mermaid
-stateDiagram-v2
-    [*] --> 初始态
-    初始态 --> pending: ci-adapter通过sdk创建job
-    pending --> downloading: job成功下发，拉起下载用容器
-    downloading --> downloadFailed: 下载失败
-    downloadFailed --> 初始态: 用户重新发起测试
-    downloading --> downloadSuccess: 下载成功
-    downloadSuccess --> running: 拉起推理用容器，开始推理
-    running --> runningFailed: 推理失败
-    running --> runningSuccess: 推理成功
-    runningFailed --> 初始态: 用户重新发起测试
-    runningSuccess --> 初始态: 用户重新发起测试
-```
-
-
+精度测试作为基础的测试策略，支持通过测试的策略组合，进行生态模型，精品模型的多样性测试组合。
 
 
 
@@ -49,7 +16,7 @@ stateDiagram-v2
 
 ### Kafka消息接口结构体
 
-**原有的模型可用性认证消息命名由 model_ci_created, model_ci_stopped修改为usability_test_created, usability_test_stopped**
+#### 新增
 
 #### accuracy_test_created消息字段
 
@@ -81,11 +48,15 @@ stateDiagram-v2
 
 
 
-### 内存数据结构体字段修改
+#### 变更
 
-**用于模型可用性认证的内存相关的结构体 ModelInfo 修改为 UsabilityModelInfo**
+原有的模型可用性认证消息命名由 model_ci_created, model_ci_stopped修改为usability_test_created, usability_test_stopped
 
-新增用于精度测试的内存相关结构体 AccuracyModelInfo
+
+
+### 内存数据结构体
+
+#### 新增
 
 #### AccuracyModelInfo结构体参数
 
@@ -137,9 +108,15 @@ stateDiagram-v2
 
 
 
+#### 变更
+
+用于模型可用性认证的内存相关的结构体 ModelInfo 修改为 UsabilityModelInfo
 
 
-### merlin server模型状态变更通知
+
+### merlin server模型状态结构体
+
+#### 新增
 
 #### UpdateAccuracyCI结构体
 
@@ -176,9 +153,7 @@ stateDiagram-v2
 
 
 
-## 推理精度测试发起
-
-前端/merlin server/kafka/ci-adapter/flex-compute之间的交互
+## 推理精度测试发起流程
 
 ### 精度测试发起流程概述
 
@@ -226,7 +201,7 @@ sequenceDiagram
 
 
 
-## flex-compute/obs/社区之间的交互
+## 精度测试执行侧流程
 
 ### 整体流程
 
@@ -306,7 +281,60 @@ sequenceDiagram
 
 
 
-#### 对比测试流程图
+### 执行侧Job状态机
+
+```mermaid
+stateDiagram-v2
+    [*] --> 初始态
+    初始态 --> pending: ci-adapter通过sdk创建job
+    pending --> downloading: job成功下发，拉起下载用容器
+    downloading --> downloadFailed: 下载失败
+    downloadFailed --> 初始态: 用户重新发起测试
+    downloading --> downloadSuccess: 下载成功
+    downloadSuccess --> running: 拉起推理用容器，开始推理
+    running --> runningFailed: 推理失败
+    running --> runningSuccess: 推理成功
+    runningFailed --> 初始态: 用户重新发起测试
+    runningSuccess --> 初始态: 用户重新发起测试
+```
+
+#### 推理失败原因
+
+- 模型等文件下载失败
+
+- 对比测试
+  - 推理脚本或模型问题导致的单次前向推理失败
+  - 虽然单次前向推理成功，但是与标杆对比后低于评估标准
+- 基线测试
+  - 推理脚本或模型问题导致的单次前向推理失败
+
+
+
+### OBS文件存放路径
+
+```apl
+/{root_path}/
+├──results/
+│  ├── {accuracy_test_id}/
+│  │  ├── test_results.json
+│  │  ├── output.txt
+│  │  └── log.log
+└──baselines/
+   ├── {model_id}/
+    	├── inference/
+    	│	 ├── {baseline_id}/
+    	│	 │  ├── input.txt
+    	│	 │  └── output.txt
+      └── training/
+         ├── {baseline_id}/
+         │   └── loss.jsonl
+```
+
+
+
+
+
+### 对比测试流程图
 
 ```mermaid
 sequenceDiagram
@@ -358,7 +386,7 @@ sequenceDiagram
 
 
 
-#### 基准测试流程图
+### 基准测试流程图
 
 ```mermaid
 sequenceDiagram
@@ -402,7 +430,7 @@ sequenceDiagram
 
 
 
-## 终止推理精度测试（涵盖发起终止请求/模型仓删除/转私有/文件更改）
+## 推理精度终止流程（发起终止请求/模型仓删除/转私有/文件更改）
 
 ### 整体流程
 
@@ -418,7 +446,7 @@ sequenceDiagram
 5. ci-adapter周期性查询内存中保存的job的状态，得到job状态后，通知merlin状态变更
 6. merlin返回结果给前端
 
-
+### 流程图
 
 ```mermaid
 sequenceDiagram
@@ -455,71 +483,105 @@ sequenceDiagram
 
 
 
+## 精度测试执行侧(flex-compute)实现
 
+### 环境变量
 
+OWNER, MODEL_NAME,  BASELINE_NAME, NEW_BASELINE_NAME, METRIC, THRESHOLD, OPERATOR, TEST_TYPE, MODEL_TEST_TYPE, RUN_AS_BASELINE, INPUT_FILE_PATH, TEST_ID
 
-
-
-
-## 精度测试执行侧伪代码
-
-
-
-### 伪代码
-
-输入：OWNER, MODEL_NAME,  BASELINE_NAME, NEW_BASELINE_NAME, METRIC, THRESHOLD, OPERATOR, TEST_TYPE, MODEL_TEST_TYPE, RUN_AS_BASELINE, INPUT_FILE_PATH, TEST_ID
-
-
+### 主要方法
 
 ```python
-#推理代码   
-def inference_for_accuracy():
-  model_path = f"/home/openmind/data/.cache/{OWNER/MODEL_NAME}/snapshot/commit-id"
-  obs_root_path = f"/root_path/results"
-  # 执行推理
-  pipe = openmind.pipeline(model_path)
-  benchmark_input=file_reader("input_benchmark.txt")
-  # 确定随机性种子，使多次推理输出能保持一致
-  output = pipe(benchmark_input)
-  file_writer("output.txt", output)
-  benchmark_output = file_reader("output_benchmark.txt")
-  # 通过环境变量METRIC判断使用的评估方法，对基线输出和pipeline的到的输出进行对比输出得分
-  metric_val = compute_metric(metric, output, benchmark_output)
-  # 根据metric_val, threshold, operator等判断精度测试是否成功，并生成test_results文件需要的对应json格式字符串
-  test_results = generate_result_file(metric, metric_val, threshold, operator)
-  file_writer("test_results.json", test_results)
-  
-  upload_files_to_obs("output.txt", "log.log", "test_results.json")
+def inference_for_accuracy(owner, model_name, commit_version_id, run_as_baseline, baseline_name, baseline_id, metric, model_test_type, threshold, operator, dest_path):
+    model_cache_path=f"/home/openmind/data/models--{owner}--{model_name}/snapshots/{commit_version_id}"
+    # TODO: How to infer with different models using an pipeline interface from openmind
+    logging.info("Pipeline is running...")
+    try:
+        with open(f"/home/openmind/benchmark/{INPUT_FILE_NAME}", "r") as f:
+            logging.info("Reading baseline input")
+            input_benchmark = f.read()
+            logging.info(f"Baseline input: {input_benchmark}")
+    except Exception as e:
+        logging.error(f"Read baseline input read failed: {e}")
+        raise Exception(f"Read baseline input read failed: {e}")
+    logging.info("Read baseline input success")
+
+    try:
+        if NUM_COMPUTE_CARDS == "1":
+            pipe = pipeline(model=model_cache_path, task="text-generation", device="npu:0", trust_remote_code=True,
+                            framework="pt")
+        else:
+            pipe = pipeline(model=model_cache_path, task="text-generation", device_map="auto", trust_remote_code=True,
+                            framework="pt")
+        output = pipe(input_benchmark, max_length=128, num_return_sequences=1)
+        logging.info(f"output: {output}")
+        output = output[0]["generated_text"]
+    except Exception as e:
+        logging.error(f"Pipeline running failed: {e}")
+        raise Exception(f"Pipeline running failed: {e}")
+
+    logging.info(f"Pipeline running success.")
+
+
+    try:
+        with open("/home/openmind/test_output/output.txt", "w") as f:
+            f.write(output)
+    except Exception as e:
+        logging.error(f"Write pipeline output failed: {e}")
+        raise Exception(f"Write pipeline output failed:{e}")
+
+    logging.info(f"Comparing with baseline {baseline_name} using {metric}.")
+
+
+    try:
+        output_benchmark = preprocess_file(f"/home/openmind/benchmark/{OUTPUT_FILE_NAME}")
+        logging.info(f"Baseline output: {output_benchmark}")
+
+    except Exception as e:
+        logging.error(f"Read output from baseline {baseline_name} failed: {e}")
+        raise Exception(f"Read output from baseline {baseline_name} failed: {e}")
+
+    output = preprocess_file(f"/home/openmind/test_output/output.txt")
+    logging.info(f"Pipeline output: {output}")
+
+    logging.info("Read baseline output success")
+    logging.debug(f"encode output from pipeline and baseline {baseline_name}.")
+    tokenizer = AutoTokenizer.from_pretrained(model_cache_path, trust_remote_code=True)
+    output = tokenizer.tokenize(output)
+    output_benchmark = tokenizer.tokenize(output_benchmark)
+
+    output = " ".join(output)
+    output_benchmark = " ".join(output_benchmark)
+
+    try:
+        logging.info(f"output: {output}")
+        logging.info(f"baseline output: {output_benchmark}")
+        result = metric_method(metric, [output], [[output_benchmark]])
+        result = round(result / 100, 2)
+
+    except Exception as e:
+        logging.error(f"metric compute with baseline {baseline_name} failed: {e}")
+        raise Exception(f"metric compute with baseline {baseline_name} failed: {e}")
+
+
+    passed = accuracy_test_comparator(threshold, result, operator)
+    passed_str = "passed" if passed else "failed"
+    logging.info(f"Comparing with baseline {baseline_name} done, accuracy test {passed_str}")
+
+
+    test_result_generator(int(baseline_id), True, model_test_type, "test", dest_path, passed, metric, result, float(threshold), operator)
+    
+    if not passed:
+        logging.info(f"Comparing with baseline {baseline_name} failed")
+        exit(1)
   
 ```
 
 
 
-### OBS文件存放路径
-
-```apl
-/{root_path}/
-├──results/
-│  ├── {accuracy_test_id}/
-│  │  ├── test_results.json
-│  │  ├── output.txt
-│  │  └── log.log
-└──baselines/
-   ├── {model_id}/
-    	├── inference/
-    	│	 ├── {baseline_id}/
-    	│	 │  ├── input.txt
-    	│	 │  └── output.txt
-      └── training/
-         ├── {baseline_id}/
-         │   └── loss.jsonl
-```
 
 
-
-
-
-## ci-adapter判断精度测试结果
+## ci-adapter-server判断精度测试结果
 
 ### 内存状态位与执行测状态位对照表
 
