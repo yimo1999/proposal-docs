@@ -521,65 +521,36 @@ OWNER, MODEL_NAME,  BASELINE_NAME, NEW_BASELINE_NAME, METRIC, THRESHOLD, OPERATO
 
 
 
-### 主要方法
+### 基础代码实现
 
 
 
 ```python
 def inference_for_accuracy(owner, model_name, commit_version_id, run_as_baseline, baseline_name, baseline_id, metric, model_test_type, threshold, operator, dest_path):
     model_cache_path=f"/home/openmind/data/models--{owner}--{model_name}/snapshots/{commit_version_id}"
-    # TODO: How to infer with different models using an pipeline interface from openmind
-    logging.info("Pipeline is running...")
-    try:
-        with open(f"/home/openmind/benchmark/{INPUT_FILE_NAME}", "r") as f:
-            logging.info("Reading baseline input")
-            input_benchmark = f.read()
-            logging.info(f"Baseline input: {input_benchmark}")
-    except Exception as e:
-        logging.error(f"Read baseline input read failed: {e}")
-        raise Exception(f"Read baseline input read failed: {e}")
-    logging.info("Read baseline input success")
+    
+    # 读取基线输入文件
+    with open(f"/home/openmind/benchmark/{INPUT_FILE_NAME}", "r") as f:
+        input_benchmark = f.read()
+		
+    # 用于区分单卡或多卡pipeline推理
+    if NUM_COMPUTE_CARDS == "1":
+        pipe = pipeline(model=model_cache_path, task="text-generation", device="npu:0", trust_remote_code=True, framework="pt")
+    else:
+        pipe = pipeline(model=model_cache_path, task="text-generation", device_map="auto", trust_remote_code=True, framework="pt")
+    
+    # 获取推理输出
+    output = pipe(input_benchmark, max_length=128, num_return_sequences=1)
+    output = output[0]["generated_text"]
+		
+    # 将推理输出写入文件
+    with open("/home/openmind/test_output/output.txt", "w") as f:
+        f.write(output)
 
-    try:
-        if NUM_COMPUTE_CARDS == "1":
-            pipe = pipeline(model=model_cache_path, task="text-generation", device="npu:0", trust_remote_code=True,
-                            framework="pt")
-        else:
-            pipe = pipeline(model=model_cache_path, task="text-generation", device_map="auto", trust_remote_code=True,
-                            framework="pt")
-        output = pipe(input_benchmark, max_length=128, num_return_sequences=1)
-        logging.info(f"output: {output}")
-        output = output[0]["generated_text"]
-    except Exception as e:
-        logging.error(f"Pipeline running failed: {e}")
-        raise Exception(f"Pipeline running failed: {e}")
+    # 预处理并读入基线输出文件
+    output_benchmark = preprocess_file(f"/home/openmind/benchmark/{OUTPUT_FILE_NAME}")
 
-    logging.info(f"Pipeline running success.")
-
-
-    try:
-        with open("/home/openmind/test_output/output.txt", "w") as f:
-            f.write(output)
-    except Exception as e:
-        logging.error(f"Write pipeline output failed: {e}")
-        raise Exception(f"Write pipeline output failed:{e}")
-
-    logging.info(f"Comparing with baseline {baseline_name} using {metric}.")
-
-
-    try:
-        output_benchmark = preprocess_file(f"/home/openmind/benchmark/{OUTPUT_FILE_NAME}")
-        logging.info(f"Baseline output: {output_benchmark}")
-
-    except Exception as e:
-        logging.error(f"Read output from baseline {baseline_name} failed: {e}")
-        raise Exception(f"Read output from baseline {baseline_name} failed: {e}")
-
-    output = preprocess_file(f"/home/openmind/test_output/output.txt")
-    logging.info(f"Pipeline output: {output}")
-
-    logging.info("Read baseline output success")
-    logging.debug(f"encode output from pipeline and baseline {baseline_name}.")
+    # 获取模型tokenizer用于文本分词
     tokenizer = AutoTokenizer.from_pretrained(model_cache_path, trust_remote_code=True)
     output = tokenizer.tokenize(output)
     output_benchmark = tokenizer.tokenize(output_benchmark)
@@ -587,33 +558,29 @@ def inference_for_accuracy(owner, model_name, commit_version_id, run_as_baseline
     output = " ".join(output)
     output_benchmark = " ".join(output_benchmark)
 
-    try:
-        logging.info(f"output: {output}")
-        logging.info(f"baseline output: {output_benchmark}")
-        result = metric_method(metric, [output], [[output_benchmark]])
-        result = round(result / 100, 2)
+    # 计算metric value
+    result = metric_method(metric, [output], [[output_benchmark]])
+    result = round(result / 100, 2)
 
-    except Exception as e:
-        logging.error(f"metric compute with baseline {baseline_name} failed: {e}")
-        raise Exception(f"metric compute with baseline {baseline_name} failed: {e}")
-
-
+		# 对比matric value和threshold，输出passed表示是否通过精度对比测试
     passed = accuracy_test_comparator(threshold, result, operator)
     passed_str = "passed" if passed else "failed"
-    logging.info(f"Comparing with baseline {baseline_name} done, accuracy test {passed_str}")
-
-
+		
+    # 生产test_result.json文件
     test_result_generator(int(baseline_id), True, model_test_type, "test", dest_path, passed, metric, result, float(threshold), operator)
     
     if not passed:
-        logging.info(f"Comparing with baseline {baseline_name} failed")
         exit(1)
   
 ```
 
 
 
-## ci-adapter-server代码实现
+## ci-adapter-server实现
+
+
+
+### 基础代码实现
 
 
 
@@ -623,89 +590,58 @@ func (s *Scheduler) handleAccuracyTaskStatus(model models.AccuracyModelInfo, tas
 	case constants.SUCCESS:
 		model.TestStatus = taskStatus.Status
 		model.TaskInfo = taskStatus
+    
+		// 获取 test_result.json文件的根路径
 		rootPath := getAccuracyResultTestKey(model)
-		s.logger.Infof("download test_result.json for model %s/%s from url: %s", model.Owner, model.ModelName, rootPath)
 
+    // 下载并反序列化test_result.json文件为预定义结构体
 		content, err := s.obsClient.DownloadStream(s.cfg.ObsClient.Bucket, rootPath+"/test_result.json")
-		if err != nil {
-			s.logger.Errorf("test_result.json download failed for model %s/%s", model.Owner, model.ModelName)
-		}
-
 		testResult, err := s.obsClient.JsonParser(content)
-		s.logger.Infof("Get testResult for model %s/%s: %+v", model.Owner, model.ModelName, testResult)
-		s.logger.Infof("testResult.Log for model %s/%s: %s", model.Owner, model.ModelName, testResult.Log)
 
-		if err != nil {
-			s.logger.Errorf("test_result.json unmarshal failed for model %s/%s", model.Owner, model.ModelName)
-		}
+    // 对应参数赋值
 		taskStatus.ReportURL = testResult.Log
-
 		taskStatus.OutputURL = testResult.Output
 		taskStatus.MetricValue = testResult.ComparisonDetails.MetricValue
 		taskStatus.Passed = testResult.Passed
-
 		model.TaskInfo = taskStatus
 
 		testResultRepo := repository.NewTestResultRepository()
-
+		
+    // 获取精度测试所用基线信息
 		baseline, err := s.baselineService.GetBaseline(uint64(model.BaseLineID))
-		if err != nil {
-			s.logger.Errorf("Get Baseline path failed: %s", err)
-			return
-		}
+		if err != nil { return }
 
-		testResultForPG := testresults.TestResult{
-			TestID:                strconv.FormatInt(model.ID, 10),
-			ModelID:               uint64(model.ModelID),
-			BaselineID:            strconv.FormatInt(model.BaseLineID, 10),
-			IsComparisonTest:      !model.RunAsBaseLine,
-			TestType:              "accuracy_test",
-			WorkflowType:          testresults.WorkflowType("inference"),
-			OutputFileURL:         model.TaskInfo.OutputURL,
-			LogFileURL:            model.TaskInfo.ReportURL,
-			Stage:                 "test",
-			Passed:                testResult.Passed,
-			Metric:                testResult.ComparisonDetails.Metric,
-			MetricValue:           testResult.ComparisonDetails.MetricValue,
-			Threshold:             testResult.ComparisonDetails.Threshold,
-			Operator:              testResult.ComparisonDetails.Operator,
-			ComparedOutputFileURL: *baseline.OutputFileURL,
-			CreatedAt:             time.Now(),
-			UpdatedAt:             time.Now(),
-		}
-
+		testResultForPG := testresults.TestResult{ xxx: xxx, xxx: xxx}
+		
+    // 上传testResult内容到PG数据库
 		err = testResultRepo.CreateOrUpdate(&testResultForPG)
 
-		if err != nil {
-			s.logger.Errorf("test result info upload failed for model %s/%s", model.Owner, model.ModelName)
-			return
-		}
+		if err != nil { return }
 
-		// 调用后端的 /success 接口
-		if err := s.backendClient.SetAccuracyModelStatus(model, constants.SUCCESS, taskStatus.ReportURL); err != nil {
-			s.logger.Errorf("Error when setting model status %s to backend for model %s/%s, skip processing", constants.SUCCESS, model.Owner, model.ModelName)
-			return
-		}
-
+		// 调用后端的 /success 接口, 更新后端，内存内保存的模型测试信息
+		if err := s.backendClient.SetAccuracyModelStatus(model, constants.SUCCESS, taskStatus.ReportURL); err != nil { return }
+		
 		s.updateAccuracyModelStatus(model.ID, constants.SUCCESS, taskStatus)
 		s.confirmAccuracyStatusNotified(model.ID)
+    
+    // 确保信息更新后，删除执行侧job
 		err = s.ciClient.DeleteCITask(taskStatus.JobID)
-		if err != nil {
-			s.logger.Errorf("Failed to delete job %s", taskStatus.JobID)
-			return
-		}
+		if err != nil { return }
 
 	case constants.FAILED:
+    // 用于判断是否为精度不达标导致的测试失败的标识符
 		var isCompareFailed bool
 		model.TestStatus = taskStatus.Status
 		model.TaskInfo = taskStatus
 		rootPath := getAccuracyResultTestKey(model)
-		s.logger.Infof("download test_result.json for model %s/%s from url: %s", model.Owner, model.ModelName, rootPath)
+    
+    // 下载test_result.json文件
 		content, err := s.obsClient.DownloadStream(s.cfg.ObsClient.Bucket, rootPath+"/test_result.json")
 		if err != nil {
-			s.logger.Errorf("test_result.json download failed for model %d: %s/%s", model.ID, model.Owner, model.ModelName)
+      // 下载失败，说明失败不由精度不达标引起
 			isCompareFailed = false
 		} else {
+      // 下载成功，说明失败由精度不达标引起
 			isCompareFailed = true
 		}
 
@@ -713,103 +649,54 @@ func (s *Scheduler) handleAccuracyTaskStatus(model models.AccuracyModelInfo, tas
 		if err != nil {
 			s.logger.Errorf("test_result.json unmarshal failed for model %s/%s", model.Owner, model.ModelName)
 		}
+    
+    // 根据标识符，返回给后端不同的数据
 		if isCompareFailed {
 			taskStatus.OutputURL = testResult.Output
 			taskStatus.MetricValue = testResult.ComparisonDetails.MetricValue
 			taskStatus.Passed = testResult.Passed
 		} else {
 			reportURL := fmt.Sprintf("https://%s.%s/model_accuracy_test/%s/results/log.txt", s.cfg.ObsClient.Bucket, s.cfg.ObsClient.Endpoint, strconv.FormatInt(model.ID, 10))
-
 			taskStatus.ReportURL = reportURL
 		}
-
-		//}
 
 		model.TaskInfo = taskStatus
 
 		baseline, err := s.baselineService.GetBaseline(uint64(model.BaseLineID))
-		if err != nil {
-			s.logger.Errorf("Get Baseline path failed: %s", err)
-			return
-		}
+		if err != nil { return }
 
 		testResultRepo := repository.NewTestResultRepository()
 
-		testResultForPG := testresults.TestResult{
-			TestID:                strconv.FormatInt(model.ID, 10),
-			ModelID:               uint64(model.ModelID),
-			BaselineID:            strconv.FormatInt(model.BaseLineID, 10),
-			IsComparisonTest:      !model.RunAsBaseLine,
-			TestType:              "accuracy_test",
-			WorkflowType:          testresults.WorkflowType("inference"),
-			OutputFileURL:         model.TaskInfo.OutputURL,
-			LogFileURL:            testResult.Log,
-			Stage:                 "test",
-			Passed:                testResult.Passed,
-			Metric:                testResult.ComparisonDetails.Metric,
-			MetricValue:           testResult.ComparisonDetails.MetricValue,
-			Threshold:             testResult.ComparisonDetails.Threshold,
-			Operator:              testResult.ComparisonDetails.Operator,
-			ComparedOutputFileURL: *baseline.OutputFileURL,
-			CreatedAt:             time.Now(),
-			UpdatedAt:             time.Now(),
-		}
+    testResultForPG := testresults.TestResult{xxx: xxx, xxx:xxx}
 
 		err = testResultRepo.CreateOrUpdate(&testResultForPG)
-		if err != nil {
-			s.logger.Errorf("test result info upload failed for model %s/%s", model.Owner, model.ModelName)
-			return
-		}
+		if err != nil { return }
 
-		// 调用后端的 /failed 接口
-		if err := s.backendClient.SetAccuracyModelStatus(model, constants.FAILED, taskStatus.ReportURL); err != nil {
-			s.logger.Errorf("Error when setting model status %s to backend for model %s/%s, skip processing", constants.FAILED, model.Owner, model.ModelName)
-			return
-		}
+		// 调用后端的 /failed 接口, 更新后端，内存内保存的模型测试信息
+		if err := s.backendClient.SetAccuracyModelStatus(model, constants.FAILED, taskStatus.ReportURL); err != nil { return }
 
 		s.updateAccuracyModelStatus(model.ID, constants.FAILED, taskStatus)
 		s.confirmAccuracyStatusNotified(model.ID)
 		err = s.ciClient.DeleteCITask(taskStatus.JobID)
-		if err != nil {
-			s.logger.Errorf("Failed to delete job %s", taskStatus.JobID)
-			return
-		}
+		if err != nil { return }
 	case constants.DOWNLOAD_FAILED:
+    // DOWNLOAD_FAILED直接向后端返回log日志
 		taskStatus.Status = constants.FAILED
 		model.TestStatus = taskStatus.Status
 		model.TaskInfo = taskStatus
 
 		taskStatus.ReportURL = utils.GetReportURL(s.config.ObsServerDomain, strconv.FormatInt(model.ModelID, 10), taskStatus.JobID)
-		if err := s.backendClient.SetAccuracyModelStatus(model, constants.FAILED, taskStatus.ReportURL); err != nil {
-			s.logger.Errorf("Error when setting accuracy test model status %s to backend for model %s/%s, skip processing", constants.FAILED, model.Owner, model.ModelName)
-			return
-		}
+		if err := s.backendClient.SetAccuracyModelStatus(model, constants.FAILED, taskStatus.ReportURL); err != nil { return }
 
 		s.updateAccuracyModelStatus(model.ID, constants.FAILED, taskStatus)
 		s.confirmAccuracyStatusNotified(model.ID)
 		err := s.ciClient.DeleteCITask(taskStatus.JobID)
-		if err != nil {
-			s.logger.Errorf("Failed to delete job %s", taskStatus.JobID)
-			return
-		}
+		if err != nil { return }
 
 	case constants.STOPPED, constants.JOB_NOT_EXIST:
-		model.TestStatus = taskStatus.Status
-		model.TaskInfo = taskStatus
-		s.updateAccuracyModelStatus(model.ID, constants.STOPPED, taskStatus)
-		if err := s.backendClient.SetAccuracyModelStatus(model, constants.STOPPED, ""); err != nil {
-			s.logger.Errorf("Error when setting model status %s to backend for model %s/%s, skip processing", constants.STOPPED, model.Owner, model.ModelName)
-			return
-		}
-		s.confirmAccuracyStatusNotified(model.ID)
-		err := s.ciClient.DeleteCITask(taskStatus.JobID)
-		if err != nil {
-			s.logger.Errorf("Failed to delete job %s", taskStatus.JobID)
-			return
-		}
+    handleStoppedTask()
 	default:
 		// do nothing and return
-		s.logger.Infof("Accuracy task status for model %s/%s is %s, skip notifying backend", model.Owner, model.ModelName, taskStatus.Status)
 		return
 	}
 }
@@ -829,7 +716,6 @@ func (s *Scheduler) handleAccuracyTaskStatus(model models.AccuracyModelInfo, tas
 | failed                 | downloadFailed/runningFailed |
 | running                | running                      |
 | stopped                | stopped                      |
-|                        |                              |
 
 
 
