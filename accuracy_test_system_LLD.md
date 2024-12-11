@@ -56,6 +56,8 @@
 
 ### 内存数据结构体
 
+
+
 #### 新增
 
 - AccuracyModelInfo结构体
@@ -116,6 +118,8 @@
 
 ### merlin server模型状态结构体
 
+
+
 #### 新增
 
 - UpdateAccuracyCI结构体
@@ -155,7 +159,11 @@
 
 ## 推理精度测试发起流程
 
+
+
 ### 精度测试发起流程概述
+
+
 
 1. 用户发起测试的处理请求
 2. 前端向merlin server发起精度测试请求
@@ -201,9 +209,13 @@ sequenceDiagram
 
 
 
-## 精度测试执行侧流程
+## 精度测试执行侧(flex-compute)流程
+
+
 
 ### 整体流程
+
+
 
 1. 容器启动
 
@@ -283,6 +295,8 @@ sequenceDiagram
 
 ### 执行侧Job状态机
 
+
+
 ```mermaid
 stateDiagram-v2
     [*] --> 初始态
@@ -300,6 +314,8 @@ stateDiagram-v2
 
 #### 推理失败原因
 
+
+
 - 模型等文件下载失败
 
 - 对比测试
@@ -310,31 +326,9 @@ stateDiagram-v2
 
 
 
-### OBS文件存放路径
-
-```apl
-/{root_path}/
-├──results/
-│  ├── {accuracy_test_id}/
-│  │  ├── test_results.json
-│  │  ├── output.txt
-│  │  └── log.log
-└──baselines/
-   ├── {model_id}/
-    	├── inference/
-    	│	 ├── {baseline_id}/
-    	│	 │  ├── input.txt
-    	│	 │  └── output.txt
-      └── training/
-         ├── {baseline_id}/
-         │   └── loss.jsonl
-```
-
-
-
-
-
 ### 对比测试流程图
+
+
 
 ```mermaid
 sequenceDiagram
@@ -388,6 +382,8 @@ sequenceDiagram
 
 ### 基准测试流程图
 
+
+
 ```mermaid
 sequenceDiagram
 	participant modelers as 魔乐社区
@@ -430,9 +426,41 @@ sequenceDiagram
 
 
 
+### OBS文件存放路径
+
+
+
+```apl
+/{root_path}/
+├──results/
+│  ├── {accuracy_test_id}/
+│  │  ├── test_results.json
+│  │  ├── output.txt
+│  │  └── log.log
+└──baselines/
+   ├── {model_id}/
+    	├── inference/
+    	│	 ├── {baseline_id}/
+    	│	 │  ├── input.txt
+    	│	 │  └── output.txt
+      └── training/
+         ├── {baseline_id}/
+         │   └── loss.jsonl
+```
+
+
+
+
+
+
+
 ## 推理精度终止流程（发起终止请求/模型仓删除/转私有/文件更改）
 
+
+
 ### 整体流程
+
+
 
 1. 用户主动发起终止精度测试的处理请求/被动发起终止的请求
 2. 前端向merlin server发起终止请求
@@ -445,8 +473,6 @@ sequenceDiagram
 
 5. ci-adapter周期性查询内存中保存的job的状态，得到job状态后，通知merlin状态变更
 6. merlin返回结果给前端
-
-### 流程图
 
 ```mermaid
 sequenceDiagram
@@ -485,11 +511,19 @@ sequenceDiagram
 
 ## 精度测试执行侧(flex-compute)实现
 
+
+
 ### 环境变量
+
+
 
 OWNER, MODEL_NAME,  BASELINE_NAME, NEW_BASELINE_NAME, METRIC, THRESHOLD, OPERATOR, TEST_TYPE, MODEL_TEST_TYPE, RUN_AS_BASELINE, INPUT_FILE_PATH, TEST_ID
 
+
+
 ### 主要方法
+
+
 
 ```python
 def inference_for_accuracy(owner, model_name, commit_version_id, run_as_baseline, baseline_name, baseline_id, metric, model_test_type, threshold, operator, dest_path):
@@ -579,11 +613,213 @@ def inference_for_accuracy(owner, model_name, commit_version_id, run_as_baseline
 
 
 
+## ci-adapter-server代码实现
 
 
-## ci-adapter-server判断精度测试结果
+
+```go
+func (s *Scheduler) handleAccuracyTaskStatus(model models.AccuracyModelInfo, taskStatus models.AccuracyTaskInfo) {
+	switch taskStatus.Status {
+	case constants.SUCCESS:
+		model.TestStatus = taskStatus.Status
+		model.TaskInfo = taskStatus
+		rootPath := getAccuracyResultTestKey(model)
+		s.logger.Infof("download test_result.json for model %s/%s from url: %s", model.Owner, model.ModelName, rootPath)
+
+		content, err := s.obsClient.DownloadStream(s.cfg.ObsClient.Bucket, rootPath+"/test_result.json")
+		if err != nil {
+			s.logger.Errorf("test_result.json download failed for model %s/%s", model.Owner, model.ModelName)
+		}
+
+		testResult, err := s.obsClient.JsonParser(content)
+		s.logger.Infof("Get testResult for model %s/%s: %+v", model.Owner, model.ModelName, testResult)
+		s.logger.Infof("testResult.Log for model %s/%s: %s", model.Owner, model.ModelName, testResult.Log)
+
+		if err != nil {
+			s.logger.Errorf("test_result.json unmarshal failed for model %s/%s", model.Owner, model.ModelName)
+		}
+		taskStatus.ReportURL = testResult.Log
+
+		taskStatus.OutputURL = testResult.Output
+		taskStatus.MetricValue = testResult.ComparisonDetails.MetricValue
+		taskStatus.Passed = testResult.Passed
+
+		model.TaskInfo = taskStatus
+
+		testResultRepo := repository.NewTestResultRepository()
+
+		baseline, err := s.baselineService.GetBaseline(uint64(model.BaseLineID))
+		if err != nil {
+			s.logger.Errorf("Get Baseline path failed: %s", err)
+			return
+		}
+
+		testResultForPG := testresults.TestResult{
+			TestID:                strconv.FormatInt(model.ID, 10),
+			ModelID:               uint64(model.ModelID),
+			BaselineID:            strconv.FormatInt(model.BaseLineID, 10),
+			IsComparisonTest:      !model.RunAsBaseLine,
+			TestType:              "accuracy_test",
+			WorkflowType:          testresults.WorkflowType("inference"),
+			OutputFileURL:         model.TaskInfo.OutputURL,
+			LogFileURL:            model.TaskInfo.ReportURL,
+			Stage:                 "test",
+			Passed:                testResult.Passed,
+			Metric:                testResult.ComparisonDetails.Metric,
+			MetricValue:           testResult.ComparisonDetails.MetricValue,
+			Threshold:             testResult.ComparisonDetails.Threshold,
+			Operator:              testResult.ComparisonDetails.Operator,
+			ComparedOutputFileURL: *baseline.OutputFileURL,
+			CreatedAt:             time.Now(),
+			UpdatedAt:             time.Now(),
+		}
+
+		err = testResultRepo.CreateOrUpdate(&testResultForPG)
+
+		if err != nil {
+			s.logger.Errorf("test result info upload failed for model %s/%s", model.Owner, model.ModelName)
+			return
+		}
+
+		// 调用后端的 /success 接口
+		if err := s.backendClient.SetAccuracyModelStatus(model, constants.SUCCESS, taskStatus.ReportURL); err != nil {
+			s.logger.Errorf("Error when setting model status %s to backend for model %s/%s, skip processing", constants.SUCCESS, model.Owner, model.ModelName)
+			return
+		}
+
+		s.updateAccuracyModelStatus(model.ID, constants.SUCCESS, taskStatus)
+		s.confirmAccuracyStatusNotified(model.ID)
+		err = s.ciClient.DeleteCITask(taskStatus.JobID)
+		if err != nil {
+			s.logger.Errorf("Failed to delete job %s", taskStatus.JobID)
+			return
+		}
+
+	case constants.FAILED:
+		var isCompareFailed bool
+		model.TestStatus = taskStatus.Status
+		model.TaskInfo = taskStatus
+		rootPath := getAccuracyResultTestKey(model)
+		s.logger.Infof("download test_result.json for model %s/%s from url: %s", model.Owner, model.ModelName, rootPath)
+		content, err := s.obsClient.DownloadStream(s.cfg.ObsClient.Bucket, rootPath+"/test_result.json")
+		if err != nil {
+			s.logger.Errorf("test_result.json download failed for model %d: %s/%s", model.ID, model.Owner, model.ModelName)
+			isCompareFailed = false
+		} else {
+			isCompareFailed = true
+		}
+
+		testResult, err := s.obsClient.JsonParser(content)
+		if err != nil {
+			s.logger.Errorf("test_result.json unmarshal failed for model %s/%s", model.Owner, model.ModelName)
+		}
+		if isCompareFailed {
+			taskStatus.OutputURL = testResult.Output
+			taskStatus.MetricValue = testResult.ComparisonDetails.MetricValue
+			taskStatus.Passed = testResult.Passed
+		} else {
+			reportURL := fmt.Sprintf("https://%s.%s/model_accuracy_test/%s/results/log.txt", s.cfg.ObsClient.Bucket, s.cfg.ObsClient.Endpoint, strconv.FormatInt(model.ID, 10))
+
+			taskStatus.ReportURL = reportURL
+		}
+
+		//}
+
+		model.TaskInfo = taskStatus
+
+		baseline, err := s.baselineService.GetBaseline(uint64(model.BaseLineID))
+		if err != nil {
+			s.logger.Errorf("Get Baseline path failed: %s", err)
+			return
+		}
+
+		testResultRepo := repository.NewTestResultRepository()
+
+		testResultForPG := testresults.TestResult{
+			TestID:                strconv.FormatInt(model.ID, 10),
+			ModelID:               uint64(model.ModelID),
+			BaselineID:            strconv.FormatInt(model.BaseLineID, 10),
+			IsComparisonTest:      !model.RunAsBaseLine,
+			TestType:              "accuracy_test",
+			WorkflowType:          testresults.WorkflowType("inference"),
+			OutputFileURL:         model.TaskInfo.OutputURL,
+			LogFileURL:            testResult.Log,
+			Stage:                 "test",
+			Passed:                testResult.Passed,
+			Metric:                testResult.ComparisonDetails.Metric,
+			MetricValue:           testResult.ComparisonDetails.MetricValue,
+			Threshold:             testResult.ComparisonDetails.Threshold,
+			Operator:              testResult.ComparisonDetails.Operator,
+			ComparedOutputFileURL: *baseline.OutputFileURL,
+			CreatedAt:             time.Now(),
+			UpdatedAt:             time.Now(),
+		}
+
+		err = testResultRepo.CreateOrUpdate(&testResultForPG)
+		if err != nil {
+			s.logger.Errorf("test result info upload failed for model %s/%s", model.Owner, model.ModelName)
+			return
+		}
+
+		// 调用后端的 /failed 接口
+		if err := s.backendClient.SetAccuracyModelStatus(model, constants.FAILED, taskStatus.ReportURL); err != nil {
+			s.logger.Errorf("Error when setting model status %s to backend for model %s/%s, skip processing", constants.FAILED, model.Owner, model.ModelName)
+			return
+		}
+
+		s.updateAccuracyModelStatus(model.ID, constants.FAILED, taskStatus)
+		s.confirmAccuracyStatusNotified(model.ID)
+		err = s.ciClient.DeleteCITask(taskStatus.JobID)
+		if err != nil {
+			s.logger.Errorf("Failed to delete job %s", taskStatus.JobID)
+			return
+		}
+	case constants.DOWNLOAD_FAILED:
+		taskStatus.Status = constants.FAILED
+		model.TestStatus = taskStatus.Status
+		model.TaskInfo = taskStatus
+
+		taskStatus.ReportURL = utils.GetReportURL(s.config.ObsServerDomain, strconv.FormatInt(model.ModelID, 10), taskStatus.JobID)
+		if err := s.backendClient.SetAccuracyModelStatus(model, constants.FAILED, taskStatus.ReportURL); err != nil {
+			s.logger.Errorf("Error when setting accuracy test model status %s to backend for model %s/%s, skip processing", constants.FAILED, model.Owner, model.ModelName)
+			return
+		}
+
+		s.updateAccuracyModelStatus(model.ID, constants.FAILED, taskStatus)
+		s.confirmAccuracyStatusNotified(model.ID)
+		err := s.ciClient.DeleteCITask(taskStatus.JobID)
+		if err != nil {
+			s.logger.Errorf("Failed to delete job %s", taskStatus.JobID)
+			return
+		}
+
+	case constants.STOPPED, constants.JOB_NOT_EXIST:
+		model.TestStatus = taskStatus.Status
+		model.TaskInfo = taskStatus
+		s.updateAccuracyModelStatus(model.ID, constants.STOPPED, taskStatus)
+		if err := s.backendClient.SetAccuracyModelStatus(model, constants.STOPPED, ""); err != nil {
+			s.logger.Errorf("Error when setting model status %s to backend for model %s/%s, skip processing", constants.STOPPED, model.Owner, model.ModelName)
+			return
+		}
+		s.confirmAccuracyStatusNotified(model.ID)
+		err := s.ciClient.DeleteCITask(taskStatus.JobID)
+		if err != nil {
+			s.logger.Errorf("Failed to delete job %s", taskStatus.JobID)
+			return
+		}
+	default:
+		// do nothing and return
+		s.logger.Infof("Accuracy task status for model %s/%s is %s, skip notifying backend", model.Owner, model.ModelName, taskStatus.Status)
+		return
+	}
+}
+```
+
+
 
 ### 内存状态位与执行测状态位对照表
+
+
 
 内存内通过flex-compute sdk返回的任务状态对是否通过精度测试进行判断
 
@@ -598,6 +834,8 @@ def inference_for_accuracy(owner, model_name, commit_version_id, run_as_baseline
 
 
 ### 测试真实结果判断逻辑
+
+
 
 由于flex-compute sdk返回的job运行完的状态只有runningSuccess和runningFailed，没有更加细粒度的状态划分。因此当前设计为ci-adapter中查询到job状态为runningSuccess后，即表示流程跑通+与标杆比较成功
 
@@ -614,62 +852,3 @@ def inference_for_accuracy(owner, model_name, commit_version_id, run_as_baseline
     - passed = false
     - output = "/path/to/your/output"
     - Log = "/path/to/your/log"
-
-
-
-```go
-"{
-  "baseline_id": "baseline_123",
-  "is_comparison_test": true,
-  "test_type": "inference",
-  "stage": "test",
-  "output": "output.txt",
-  "log": "execution.log",
-  "passed": true,
-  "comparison_details": {
-    "metric": "BLEU",
-    "metric_value": 0.85,
-    "threshold": 0.80,
-    "operator": ">="
-  }
-}"
-
-
-// 当flex-compute返回job状态为success时，调用该方
-func (ami *AccuracyModelInfo) accuracy_test_inspector() {
-  // 内存中的status只有 success, failed(runningFailed and downloadFailed included), running, stopped
-  test_result = download(/obs_endpoint/accuracy_test_id/test_result.json)	
-
-  ami.TaskInfo{
-    ReportURL: test_result.log
-    OutputURL: test_result.output
-    MetricValue: test_result.comparison_details.metric_value
-    Passed: test_result.passed
-  }
-}
-
-
-// 当flex-compute返回job状态为failed时，调用该方法
-func (ami *AccuracyModelInfo) IsRunningFailure() {
-  test_result = download(/obs_endpoint/accuracy_test_id/test_result.json)	
-  // 如果test_result.json存在，说明执行侧全流程运行成功，为精度对比失败
-  if isFileExisted() {
-    ami.TaskInfo{
-      OutputURL: test_result.output
-      MetricValue: test_result.comparison_details.metric_value
-      Passed: test_result.passed
-    }
-  } else {
-    // outputURL, metricValue, Passed等置空，只返回log URL
-    ami.TaskInfo{
-      reportURL: reportURL
-    }
-  }
- }
-}
-```
-
-
-
-
-
